@@ -461,10 +461,6 @@ for n_ens in n_ens_list:
         plt.title(f'n_ens:{n_ens}')
         plt.savefig(f'leadtime_vs_error_spread_corr_netens_{param_string}.svg')
 
-
-        pickle.dump((errors_dists, errors_ens_dists ,spreads_dists ,errors_net_ens_dists, spreads_net_dists),
-                    open(f'{param_string}.pkl','wb'))
-
         plt.close('all')
         df = pd.DataFrame({'leadtime':leadtimes,
                            # we have rmse and std, so to average it, we have to square it, and than at
@@ -488,4 +484,17 @@ for n_ens in n_ens_list:
 
 
 
+        # save single forecast results as well
 
+        out = {'leadtime':leadtimes,
+               'rmse_ctrl':errors_dists,
+               'mse_ensmean_svd':errors_ens_dists,
+               'mse_ensmean_rand':errors_rand_dists,
+               'mse_ensmean_netens':errors_net_ens_dists,
+               'spread_svd':spreads_dists,
+               'spread_rand':spreads_rand_dists,
+               'spread_netens':spreads_net_dists,
+               'n_ens':n_ens,
+               'pert_scale':pert_scale,
+               }
+        pickle.dump(out, open(f'{outdir}/lorenz95_spread_error_correlation_{param_string}.pkl','wb'))

@@ -1,10 +1,8 @@
-#! /proj/bolinc/users/x_sebsc/anaconda3/envs/nn-svd-env/bin/python
+#! /pfs/nobackup/home/s/sebsc/miniconda3/envs/tf2-env/bin/python
 
-#SBATCH -A snic2019-1-2
-#SBATCH --time=02-00:00:00
-#SBATCH -N 1
-
-# run on tetralith in /home/x_sebsc/nn_ensemble_nwp/plasimt42
+#SBATCH -A SNIC2019-3-611
+#SBATCH --time=24:00:00
+#SBATCH --gres=gpu:k80:1
 
 import os
 import json
@@ -28,11 +26,12 @@ i_train = 1 # ensemble member of net ensemble
 outdir='output'
 os.system(f'mkdir -p {outdir}')
 
-ifile = '/proj/bolinc/users/x_sebsc/gcm_complexity_machinelearning/models/preprocessed/' + modelname + 'reordered.merged.nc'
+# ifile = '/proj/bolinc/users/x_sebsc/gcm_complexity_machinelearning/models/preprocessed/' + modelname + 'reordered.merged.nc'
 
-# ifile='/home/s/sebsc/pfs/nn_ensemble/plasimt42/modeldata/'+ modelname + 'reordered.merged.nc'
+ifile='/home/s/sebsc/pfs/nn_ensemble/plasimt42/modeldata/'+ modelname + 'reordered.merged.nc'
 
-jacobi_dir = '/proj/bolinc/users/x_sebsc/nn_ensemble_nwp/plasimt42/output/'
+# jacobi_dir = '/proj/bolinc/users/x_sebsc/nn_ensemble_nwp/plasimt42/output/'
+jacobi_dir = '/pfs/nobackup/home/s/sebsc/nn_ensemble/plasimt42/output/'
 lead_time = 1  # days, lead time used for training
 
 test_years = 1

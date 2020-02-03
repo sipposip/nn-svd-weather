@@ -1,7 +1,7 @@
 #! /pfs/nobackup/home/s/sebsc/miniconda3/envs/tf2-env/bin/python
 
 #SBATCH -A SNIC2019-3-611
-#SBATCH --time=03:00:00
+#SBATCH --time=04:00:00
 #SBATCH --gres=gpu:k80:1
 
 """
@@ -396,7 +396,7 @@ for n_ens in [2,4,10,20,100,1000]:
         res_mse_ensmean_rand = []
         leadtimes = []
         res_mse_pers = []
-        res_ensvar = []
+        res_ensvar_svd = []
         res_ensvar_rand = []
 
         for ilead,fc_step in enumerate(range(0,max_forecast_steps)):
@@ -428,7 +428,7 @@ for n_ens in [2,4,10,20,100,1000]:
             mse_pers = compute_mse(x_init_pers, truth)
             res_mse_pers.append(mse_pers)
             ensvar_mean = np.mean(y_pred_ensvar_2d,axis=(1,2)) * norm_std **2
-            res_ensvar.append(ensvar_mean)
+            res_ensvar_svd.append(ensvar_mean)
             ensvar_mean_rand = np.mean(y_pred_ensvar_rand_2d, axis=(1, 2)) * norm_std ** 2
             res_ensvar_rand.append(ensvar_mean_rand)
 
@@ -441,7 +441,7 @@ for n_ens in [2,4,10,20,100,1000]:
         res_mse_ensmean_svd = np.array(res_mse_ensmean_svd)
         res_mse_ensmean_rand = np.array(res_mse_ensmean_rand)
         res_mse_pers = np.array(res_mse_pers)
-        res_ensvar = np.array(res_ensvar)
+        res_ensvar_svd = np.array(res_ensvar_svd)
         res_ensvar_rand = np.array(res_ensvar_rand)
         plt.figure()
         plt.plot(leadtimes, np.sqrt(np.mean(res_mse_ctrl,1)), label='rmse ctrl', color='black')
@@ -449,7 +449,7 @@ for n_ens in [2,4,10,20,100,1000]:
         plt.plot(leadtimes, np.sqrt(np.mean(res_mse_ensmean_rand,1)), label='rmse ensmean rand', color='#7570b3')
         plt.plot(leadtimes, np.sqrt(np.mean(res_mse_netens,1)), label='rmse ensmean netens', color='#d95f02')
         plt.plot(leadtimes, np.sqrt(np.mean(res_mse_pers,1)), label='rmse persistence')
-        plt.plot(leadtimes, np.sqrt(np.mean(res_ensvar,1)), label='spread svd', color='#1b9e77', linestyle='--')
+        plt.plot(leadtimes, np.sqrt(np.mean(res_ensvar_svd,1)), label='spread svd', color='#1b9e77', linestyle='--')
         plt.plot(leadtimes, np.sqrt(np.mean(res_ensvar_rand,1)), label='spread rand', color='#7570b3', linestyle='--')
         plt.plot(leadtimes, np.sqrt(np.mean(res_ensvar_netens,1)), label='spread netens', color='#d95f02', linestyle='--')
         for imem in range(res_mse_netens_permember.shape[1]):
@@ -461,7 +461,7 @@ for n_ens in [2,4,10,20,100,1000]:
         corrs_rand = []
         corrs_netens = []
         for ltime in range(1,max_forecast_steps):
-            corrs_svd.append(np.corrcoef(np.sqrt(res_ensvar[ltime]).squeeze(), np.sqrt(res_mse_ensmean_svd[ltime]).squeeze())[0, 1])
+            corrs_svd.append(np.corrcoef(np.sqrt(res_ensvar_svd[ltime]).squeeze(), np.sqrt(res_mse_ensmean_svd[ltime]).squeeze())[0, 1])
             corrs_rand.append(np.corrcoef(np.sqrt(res_ensvar_rand[ltime]).squeeze(), np.sqrt(res_mse_ensmean_rand[ltime]).squeeze())[0, 1])
             corrs_netens.append(np.corrcoef(np.sqrt(res_ensvar_netens[ltime]).squeeze(), np.sqrt(res_mse_netens[ltime]).squeeze())[0, 1])
 
@@ -481,12 +481,7 @@ for n_ens in [2,4,10,20,100,1000]:
 
         df = pd.DataFrame({'leadtime':leadtimes,
                            'rmse_ctrl':np.sqrt(np.mean(res_mse_ctrl,1)).squeeze(),
-                           'mse_ensmean_svd':np.sqrt(np.mean(res_mse_ensmean_svd,1)).squeeze(),
-                           'mse_ensmean_rand':np.sqrt(np.mean(res_mse_ensmean_rand,1)).squeeze(),
-                           'mse_ensmean_netens':np.sqrt(np.mean(res_mse_netens,1)).squeeze(),
-                           'spread_svd':np.sqrt(np.mean(res_ensvar,1)).squeeze(),
-                           'spread_rand':np.sqrt(np.mean(res_ensvar_rand,1)).squeeze(),
-                           'spread_netens':np.sqrt(np.mean(res_ensvar_netens,1)).squeeze(),
+                           from tqdm import tqdm
                            # the corrs arrays dont have an entry for leadtome=0, we we add 0 here to
                            # have the same length
                            'corr_svd':[0] + corrs_svd,
@@ -496,3 +491,18 @@ for n_ens in [2,4,10,20,100,1000]:
                            'pert_scale':pert_scale,
                            })
         df.to_csv(f'{outdir}/era5_leadtime_vs_skill_and_spread_{param_string}_{test_startyear}-{test_endyear}_{svd_params}.csv')
+
+        # save single forecast results as well
+
+        out = {'leadtime': leadtimes,
+               'rmse_ctrl': res_mse_ctrl,
+               'mse_ensmean_svd': res_mse_ensmean_svd,
+               'mse_ensmean_rand': res_mse_ensmean_rand,
+               'mse_ensmean_netens': res_mse_netens,
+               'spread_svd': res_ensvar_svd,
+               'spread_rand': res_ensvar_rand,
+               'spread_netens': res_ensvar_netens,
+               'n_ens': n_ens,
+               'pert_scale': pert_scale,
+               }
+        pickle.dump(out, open(f'{outdir}/era5_leadtime_vs_skill_and_spread_{param_string}_{test_startyear}-{test_endyear}_{svd_params}.pkl', 'wb'))
