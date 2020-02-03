@@ -6,6 +6,7 @@ import pandas as pd
 import seaborn as sns
 import numpy as np
 from pylab import plt
+from tqdm import tqdm
 
 plotdir='plots/'
 os.system(f'mkdir -p {plotdir}')
@@ -14,7 +15,7 @@ os.system(f'mkdir -p {plotdir}')
 # create a list of dictionaries, each ditc containing the reults for one n_ens - pert_scale combination
 full_res = []
 for n_ens in [2,4,10,20,100]:
-    for pert_scale in [0.001,0.003,0.01, 0.03,0.1,0.3,1, 3]: #TODO: rerun with pertscale 3
+    for pert_scale in [0.001,0.003,0.01, 0.03,0.1,0.3,1, 3]:
         ifile = f'output/era5_leadtime_vs_skill_and_spread_era5_2.5deg_weynetal_1979-2016_2017-2018_n_svs10_n_ens{n_ens}_pertscale{pert_scale}_nresample1_svdleadtime8.pkl'
         res = pickle.load(open(ifile,'rb'))
         # the data is on float32. convert all float data to float 64
@@ -22,6 +23,21 @@ for n_ens in [2,4,10,20,100]:
             if type(res[key]) == np.ndarray and res[key].dtype=='float32':
                 res[key] = res[key].astype('float64')
         full_res.append(res)
+
+
+def bootstrapped_correlation(x, y, perc=5, N=1000):
+    assert (len(x) == len(y))
+    corrs = []
+    for i in range(N):
+        indices = np.random.choice(len(x), replace=True, size=len(x))
+        corr = np.corrcoef(x[indices], y[indices])[0, 1]
+        corrs.append(corr)
+    corrs = np.array(corrs)
+    meancorr = np.corrcoef(x, y)[0, 1]
+    upper = np.percentile(corrs, q=100 - perc)
+    lower = np.percentile(corrs, q=perc)
+
+    return meancorr, lower, upper
 
 
 def bootstrapped_correlation_difference(x1,y1,x2,y2, perc=5, N=1000):
@@ -70,35 +86,38 @@ def bootstrapped_rmse_difference(x1,x2, perc=5, N=1000):
     return np.array([mmean, lower, upper])
 
 
-
-def corr(x1,x2):
-    return np.corrcoef(x1,x2)[0,1]
-
 # loop over n_ens and pert_scale
 res_df = []
-for sub in full_res:
-    # for each leadtime, compute mean error, spread, and spread error correlation, the latter
+for sub in tqdm(full_res):
+    # for each leadtime, compute mean error, spread, and spread error correlaation, the latter
     # including uncertainty estimates
     for ltime in range(len(sub['leadtime'])):
 
         if ltime > 0:  # for leadtime 0, correlation does not make sense
-            # we want the correlation between rmse and spread, so we have to take the sqrt since we have
-            # mse and variance (even though it is called "spread_***", it is in fact the variance
-            corr_svd = corr(np.sqrt(sub['mse_ensmean_svd'][ltime].squeeze()),
+            # we want the correlation nbetween rmse and spread, so we have to take the sqrt since we have
+            # mse and variance
+            corr_svd = bootstrapped_correlation(np.sqrt(sub['mse_ensmean_svd'][ltime].squeeze()),
                                                         np.sqrt(sub['spread_svd'][ltime].squeeze()))
-            corr_netens = corr(np.sqrt(sub['mse_ensmean_netens'][ltime].squeeze()),
+
+            corr_netens = bootstrapped_correlation(np.sqrt(sub['mse_ensmean_netens'][ltime].squeeze()),
                                                         np.sqrt(sub['spread_netens'][ltime].squeeze()))
-            corr_rand = corr(np.sqrt(sub['mse_ensmean_rand'][ltime].squeeze()),
-                                                        np.sqrt(sub['spread_rand'][ltime].squeeze()))
+
+            corr_rand = bootstrapped_correlation(np.sqrt(sub['mse_ensmean_rand'][ltime].squeeze()),
+                             np.sqrt(sub['spread_rand'][ltime].squeeze()))
 
         else:
-            corr_svd, corr_netens, corr_rand = 0,0,0
-            corrdiff_svd_rand, corrdiff_svd_netens, corrdiff_rand_netens = [0,0,0],[0,0,0],[0,0,0]
+            corr_svd, corr_netens, corr_rand = [0,0,0],[0,0,0],[0,0,0]
 
         _df = pd.DataFrame({'leadtime':sub['leadtime'][ltime],
-                            'corr_svd':corr_svd,
-                            'corr_rand':corr_rand,
-                            'corr_netens': corr_netens,
+                            'corr_svd':corr_svd[0],
+                            'corr_svd_lower':corr_svd[1],
+                            'corr_svd_upper':corr_svd[2],
+                            'corr_rand':corr_rand[0],
+                            'corr_rand_lower':corr_rand[1],
+                            'corr_rand_upper':corr_rand[2],
+                            'corr_netens':corr_netens[0],
+                            'corr_netens_lower':corr_netens[1],
+                            'corr_netens_upper':corr_netens[2],
 
                             #compute RMSE and mean stddev
                             'rmse_ensmean_svd': np.sqrt(np.mean(sub['mse_ensmean_svd'][ltime])),
@@ -139,6 +158,8 @@ sub_rand = df.query('pert_scale==@best_pert_scale_rand')
 df_best = sub_svd.copy()
 df_best['rmse_ensmean_rand'] = sub_rand['rmse_ensmean_rand']
 df_best['corr_rand'] = sub_rand['corr_rand']
+df_best['corr_rand_lower'] = sub_rand['corr_rand_lower']
+df_best['corr_rand_upper'] = sub_rand['corr_rand_upper']
 df_best['spread_rand'] = sub_rand['spread_rand']
 # pert_scale is now mixed, so it is meaningles and we can delete it
 df_best.drop(columns=['pert_scale'], inplace=True)
@@ -235,6 +256,8 @@ np.testing.assert_allclose(df_best['corr_svd'] - df_best['corr_rand'], df_best['
 np.testing.assert_allclose(df_best['corr_svd'] - df_best['corr_netens'], df_best['corrdiff_svd_netens'])
 np.testing.assert_allclose(df_best['corr_rand'] - df_best['corr_netens'], df_best['corrdiff_rand_netens'])
 
+
+## plotting
 sns.set_context("paper", font_scale=1.5, rc={"lines.linewidth": 2.5})
 plt.rcParams['savefig.bbox']='tight'
 plt.rcParams['legend.frameon']=True
@@ -295,8 +318,11 @@ plt.savefig(f'{plotdir}/era5_leadtime_vs_skill_and_spread_diff_best_n_ens{n_ens}
 # plot correlation. we omit leadtime==0, because here correlation does not make sense
 plt.figure(figsize=figsize)
 plt.plot(sub_df['leadtime'][1:], sub_df['corr_svd'][1:], label='svd', color='#1b9e77')
+plt.fill_between(sub_df['leadtime'][1:], sub_df['corr_svd_lower'][1:],sub_df['corr_svd_upper'][1:],color='#1b9e77', alpha=0.5)
 plt.plot(sub_df['leadtime'][1:], sub_df['corr_rand'][1:], label='rand', color='#7570b3')
+plt.fill_between(sub_df['leadtime'][1:], sub_df['corr_rand_lower'][1:],sub_df['corr_rand_upper'][1:],color='#7570b3', alpha=0.5)
 plt.plot(sub_df['leadtime'][1:], sub_df['corr_netens'][1:], label='netens', color='#d95f02')
+plt.fill_between(sub_df['leadtime'][1:], sub_df['corr_netens_lower'][1:],sub_df['corr_netens_upper'][1:],color='#d95f02', alpha=0.5)
 plt.legend()
 plt.xlabel('leadtime [h]')
 plt.ylabel('spread-error correlation')
@@ -396,3 +422,36 @@ plt.title(f'leadtime={leadtime} h')
 plt.axhline(0, color='black', zorder=-5, linewidth=1)
 sns.despine()
 plt.savefig(f'{plotdir}/era5_n_ens_vs_corrdiff_leadtime{leadtime}.svg')
+
+
+# different pertscales
+n_ens=20
+leadtime=60
+
+sub_df = df.query('leadtime==@leadtime & n_ens==@n_ens')
+
+plt.figure(figsize=figsize)
+plt.plot()
+plt.plot(sub_df['pert_scale'], sub_df['rmse_ensmean_svd'], label='rmse ensmean svd', color='#1b9e77')
+plt.plot(sub_df['pert_scale'], sub_df['rmse_ensmean_rand'], label='rmse ensmean rand', color='#7570b3')
+plt.plot(sub_df['pert_scale'], sub_df['rmse_ensmean_netens'], label='rmse ensmean netens', color='#d95f02')
+plt.plot(sub_df['pert_scale'], sub_df['spread_svd'], label='spread svd', color='#1b9e77', linestyle='--')
+plt.plot(sub_df['pert_scale'], sub_df['spread_rand'], label='spread rand', color='#7570b3', linestyle='--')
+plt.plot(sub_df['pert_scale'], sub_df['spread_netens'], label='spread netens', color='#d95f02', linestyle='--')
+plt.legend()
+plt.xlabel('pert_scale')
+sns.despine()
+plt.title(f'leadtime:{leadtime}h')
+plt.savefig(f'{plotdir}/era5_pert_scale_vs_skill_spread_leadtime{leadtime}.svg')
+
+plt.figure(figsize=figsize)
+plt.plot()
+plt.plot(sub_df['pert_scale'], sub_df['corr_svd'], label='svd', color='#1b9e77')
+plt.plot(sub_df['pert_scale'], sub_df['corr_rand'], label='rand', color='#7570b3')
+plt.plot(sub_df['pert_scale'], sub_df['corr_netens'], label='netens', color='#d95f02')
+plt.legend()
+plt.xlabel('pert_scale')
+plt.ylabel('spread error correlation')
+sns.despine()
+plt.title(f'leadtime:{leadtime}h')
+plt.savefig(f'{plotdir}/era5_pert_scale_vs_corr_leadtime{leadtime}.svg')
