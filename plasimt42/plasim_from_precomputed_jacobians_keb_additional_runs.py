@@ -1,7 +1,7 @@
 #! /pfs/nobackup/home/s/sebsc/miniconda3/envs/tf2-env/bin/python
 
 #SBATCH -A SNIC2019-3-611
-#SBATCH --time=12:00:00
+#SBATCH --time=24:00:00
 #SBATCH --gres=gpu:k80:1
 
 import os
@@ -202,7 +202,7 @@ x_init_ctrl = data_reduced[:-int(max_forecast_steps//tres_factor)]
 
 # loop over different parameters for th eensemble.
 # in each loop iteration, all forecasts are made and evaluated
-for n_ens in [2,100]:
+for n_ens in [2,4,10,20,100]:
 
     if n_ens <=n_ens_netens_max:
         # network member ensemble
@@ -248,7 +248,7 @@ for n_ens in [2,100]:
                 n_ens=n_ens_netens will be reused for the netens!')
     # perturbed ensembles
 
-    for pert_scale in [1, 3]:
+    for pert_scale in [6,10,20]:
 
         svd_params = f'n_svs{n_svs}_n_ens{n_ens}_pertscale{pert_scale}_nresample{n_resample}_svdleadtime{svd_leadtime}'
         # initialize, we have to discard the last max_leadtime initial fields, because we dont

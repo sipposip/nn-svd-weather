@@ -15,7 +15,7 @@ os.system(f'mkdir -p {plotdir}')
 # create a list of dictionaries, each ditc containing the reults for one n_ens - pert_scale combination
 full_res = []
 for n_ens in [2,4,10,20, 100]:
-    for pert_scale in [0.001,0.003,0.01, 0.03,0.1,0.3,1, 3]:
+    for pert_scale in [0.001,0.003,0.01, 0.03,0.1,0.3,1, 3, 6, 10, 20]:
         ifile = f'output/plasimt42_leadtime_vs_skill_and_spread_plasimt42_100_0_100_1_1_1_n_svs10_n_ens{n_ens}_pertscale{pert_scale}_nresample1_svdleadtime2.pkl'
         res = pickle.load(open(ifile,'rb'))
         # the data is on float32. convert all float data to float 64
@@ -436,28 +436,68 @@ leadtime=96
 
 sub_df = df.query('leadtime==@leadtime & n_ens==@n_ens')
 
-plt.figure(figsize=figsize)
-plt.plot()
-plt.plot(sub_df['pert_scale'], sub_df['rmse_ensmean_svd'], label='rmse ensmean svd', color='#1b9e77')
-plt.plot(sub_df['pert_scale'], sub_df['rmse_ensmean_rand'], label='rmse ensmean rand', color='#7570b3')
-plt.plot(sub_df['pert_scale'], sub_df['rmse_ensmean_netens'], label='rmse ensmean netens', color='#d95f02')
-plt.plot(sub_df['pert_scale'], sub_df['spread_svd'], label='spread svd', color='#1b9e77', linestyle='--')
-plt.plot(sub_df['pert_scale'], sub_df['spread_rand'], label='spread rand', color='#7570b3', linestyle='--')
-plt.plot(sub_df['pert_scale'], sub_df['spread_netens'], label='spread netens', color='#d95f02', linestyle='--')
-plt.legend()
-plt.xlabel('pert_scale')
+fig, ax1 = plt.subplots(figsize=figsize)
+ax2 = plt.twiny(ax1)
+ax2.xaxis.set_ticks_position('bottom')
+ax2.xaxis.set_label_position('bottom')
+ax2.spines['bottom'].set_position(('outward', 40))
+ax1.plot(sub_df['pert_scale'], sub_df['rmse_ensmean_svd'], label='rmse ensmean svd', color='#1b9e77')
+ax2.plot(sub_df['pert_scale'], sub_df['rmse_ensmean_rand'], label='rmse ensmean rand', color='#7570b3')
+ax1.plot(sub_df['pert_scale'], sub_df['rmse_ensmean_netens'], label='rmse ensmean netens', color='#d95f02')
+ax1.plot(sub_df['pert_scale'], sub_df['spread_svd'], label='spread svd', color='#1b9e77', linestyle='--')
+ax2.plot(sub_df['pert_scale'], sub_df['spread_rand'], label='spread rand', color='#7570b3', linestyle='--')
+ax1.plot(sub_df['pert_scale'], sub_df['spread_netens'], label='spread netens', color='#d95f02', linestyle='--')
+# when using twinaxes, plt.legend() does not work
+lines, labels = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax2.legend(lines + lines2, labels + labels2)
+ax1.set_xlabel('pert_scale svd')
+ax2.set_xlabel('pert_scale rand')
+ax1.xaxis.labelpad = 0
+ax2.xaxis.labelpad = 0
+ax1.set_xscale('log')
+ax2.set_xscale('log')
+ax2.set_xlim(xmax=3)
+plt.ylim(ymin=-10,ymax=200)
 sns.despine()
 plt.title(f'leadtime:{leadtime}h')
 plt.savefig(f'{plotdir}/plasimt42_pert_scale_vs_skill_spread_leadtime{leadtime}.svg')
 
-plt.figure(figsize=figsize)
-plt.plot()
-plt.plot(sub_df['pert_scale'], sub_df['corr_svd'], label='svd', color='#1b9e77')
-plt.plot(sub_df['pert_scale'], sub_df['corr_rand'], label='rand', color='#7570b3')
-plt.plot(sub_df['pert_scale'], sub_df['corr_netens'], label='netens', color='#d95f02')
-plt.legend()
-plt.xlabel('pert_scale')
+fig, ax1 = plt.subplots(figsize=figsize)
+ax2 = plt.twiny(ax1)
+ax2.xaxis.set_ticks_position('bottom')
+ax2.xaxis.set_label_position('bottom')
+ax2.spines['bottom'].set_position(('outward', 40))
+ax1.plot(sub_df['pert_scale'], sub_df['corr_svd'], label='svd', color='#1b9e77')
+ax1.fill_between(sub_df['pert_scale'], sub_df['corr_svd_lower'],sub_df['corr_svd_upper'] ,color='#1b9e77', alpha=0.5)
+ax2.plot(sub_df['pert_scale'], sub_df['corr_rand'], label='rand', color='#7570b3')
+ax2.fill_between(sub_df['pert_scale'], sub_df['corr_rand_lower'],sub_df['corr_rand_upper'] ,color='#1b9e77', alpha=0.5)
+ax1.plot(sub_df['pert_scale'], sub_df['corr_netens'], label='netens', color='#d95f02')
+ax1.fill_between(sub_df['pert_scale'], sub_df['corr_netens_lower'],sub_df['corr_netens_upper'] ,color='#d95f02', alpha=0.5)
+# when using twinaxes, plt.legend() does not work
+lines, labels = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax2.legend(lines + lines2, labels + labels2)
+ax1.set_xlabel('pert_scale svd')
+ax2.set_xlabel('pert_scale rand')
+ax1.xaxis.labelpad = 0
+ax2.xaxis.labelpad = 0
 plt.ylabel('spread error correlation')
+ax1.set_xscale('log')
+ax2.set_xscale('log')
+ax2.set_xlim(xmax=3)
 sns.despine()
 plt.title(f'leadtime:{leadtime}h')
 plt.savefig(f'{plotdir}/plasimt42_pert_scale_vs_corr_leadtime{leadtime}.svg')
+
+# spaghetti plot
+plt.figure(figsize=figsize)
+for pert_scale in df['pert_scale'].unique():
+    sub_df = df.query('pert_scale==@pert_scale & n_ens==@n_ens')
+    plt.plot(sub_df['leadtime'], sub_df['corr_svd'], label='svd', color='#1b9e77', alpha=0.9)
+    plt.plot(sub_df['leadtime'], sub_df['corr_rand'], label='rand', color='#7570b3', alpha=0.9)
+plt.plot(sub_df['leadtime'], sub_df['corr_netens'], label='netens', color='#d95f02', alpha=0.9)
+plt.xlabel('leadtime [h]')
+plt.ylabel('spread error correlation')
+sns.despine()
+plt.savefig(f'{plotdir}/plasimt42_pert_leadtime_vs_corr_spaghetti.svg')
