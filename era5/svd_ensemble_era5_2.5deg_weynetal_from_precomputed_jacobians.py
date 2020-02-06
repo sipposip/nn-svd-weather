@@ -481,7 +481,12 @@ for n_ens in [2,4,10,20,100,1000]:
 
         df = pd.DataFrame({'leadtime':leadtimes,
                            'rmse_ctrl':np.sqrt(np.mean(res_mse_ctrl,1)).squeeze(),
-                           from tqdm import tqdm
+                           'mse_ensmean_svd':np.sqrt(np.mean(res_mse_ensmean_svd,1)).squeeze(),
+                           'mse_ensmean_rand':np.sqrt(np.mean(res_mse_ensmean_rand,1)).squeeze(),
+                           'mse_ensmean_netens':np.sqrt(np.mean(res_mse_netens,1)).squeeze(),
+                           'spread_svd':np.sqrt(np.mean(res_ensvar_svd,1)).squeeze(),
+                           'spread_rand':np.sqrt(np.mean(res_ensvar_rand,1)).squeeze(),
+                           'spread_netens':np.sqrt(np.mean(res_ensvar_netens,1)).squeeze(),
                            # the corrs arrays dont have an entry for leadtome=0, we we add 0 here to
                            # have the same length
                            'corr_svd':[0] + corrs_svd,
