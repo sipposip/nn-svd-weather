@@ -263,10 +263,13 @@ np.testing.assert_allclose(df_best['corr_rand'] - df_best['corr_netens'], df_bes
 
 
 ## plotting
-sns.set_context("paper", font_scale=1.5, rc={"lines.linewidth": 2.5})
+sns.set_context("paper", font_scale=1.5, rc={'lines.linewidth': 2.5,
+                                             'legend.fontsize':'small'})
 plt.rcParams['savefig.bbox']='tight'
 plt.rcParams['legend.frameon']=True
 plt.rcParams['legend.framealpha']=0.4
+plt.rcParams['legend.labelspacing']=0.1
+
 
 sub_df = df_best.query('n_ens==@n_ens')
 figsize=(7.5,3)
@@ -285,6 +288,7 @@ plt.plot(sub_df['leadtime'], sub_df['spread_rand'], label='spread rand', color='
 plt.plot(sub_df['leadtime'], sub_df['spread_netens'], label='spread netens', color='#d95f02', linestyle='--')
 plt.legend()
 plt.xlabel('leadtime [h]')
+plt.ylabel('[$m$]')
 sns.despine()
 plt.title(f'n_ens:{n_ens}')
 plt.ylim(ymax=120)
@@ -315,6 +319,7 @@ plt.legend()
 plt.xlabel('leadtime [h]')
 plt.axhline(0, color='black', zorder=-5, linewidth=1)
 sns.despine()
+plt.ylabel('[$m$]')
 plt.title(f'n_ens:{n_ens}')
 plt.savefig(f'{plotdir}/plasimt42_leadtime_vs_skill_and_spread_diff_best_n_ens{n_ens}.svg')
 
@@ -375,6 +380,7 @@ plt.plot(sub_df['n_ens'], sub_df['spread_rand'], label='spread rand', color='#75
 plt.plot(sub_netens['n_ens'], sub_netens['spread_netens'], label='spread netens', color='#d95f02', linestyle='--')
 plt.legend()
 plt.xlabel('N ensemble members')
+plt.ylabel('[$m$]')
 plt.title(f'leadtime={leadtime} h')
 sns.despine()
 plt.savefig(f'{plotdir}/plasimt42_n_ens_vs_skill_leadtime{leadtime}.svg')
@@ -395,6 +401,7 @@ plt.xlabel('N ensemble members')
 plt.title(f'leadtime={leadtime} h')
 plt.axhline(0, color='black', zorder=-5, linewidth=1)
 sns.despine()
+plt.ylabel('[$m$]')
 plt.savefig(f'{plotdir}/plasimt42_n_ens_vs_skill_diff_leadtime{leadtime}.svg')
 
 
@@ -453,6 +460,8 @@ lines2, labels2 = ax2.get_legend_handles_labels()
 ax2.legend(lines + lines2, labels + labels2)
 ax1.set_xlabel('pert_scale svd')
 ax2.set_xlabel('pert_scale rand')
+ax1.axvline(best_pert_scale_svd, linestyle=':', color='#1b9e77')
+ax2.axvline(best_pert_scale_rand, linestyle=':', color='#7570b3')
 ax1.xaxis.labelpad = 0
 ax2.xaxis.labelpad = 0
 ax1.set_xscale('log')
@@ -460,6 +469,7 @@ ax2.set_xscale('log')
 ax2.set_xlim(xmax=3)
 plt.ylim(ymin=-10,ymax=200)
 sns.despine()
+ax1.set_ylabel('[$m$]')
 plt.title(f'leadtime:{leadtime}h')
 plt.savefig(f'{plotdir}/plasimt42_pert_scale_vs_skill_spread_leadtime{leadtime}.svg')
 
@@ -480,6 +490,8 @@ lines2, labels2 = ax2.get_legend_handles_labels()
 ax2.legend(lines + lines2, labels + labels2)
 ax1.set_xlabel('pert_scale svd')
 ax2.set_xlabel('pert_scale rand')
+ax1.axvline(best_pert_scale_svd, linestyle=':', color='#1b9e77')
+ax2.axvline(best_pert_scale_rand, linestyle=':', color='#7570b3')
 ax1.xaxis.labelpad = 0
 ax2.xaxis.labelpad = 0
 plt.ylabel('spread error correlation')
@@ -488,6 +500,7 @@ ax2.set_xscale('log')
 ax2.set_xlim(xmax=3)
 sns.despine()
 plt.title(f'leadtime:{leadtime}h')
+ax1.set_ylabel('spread error correlation')
 plt.savefig(f'{plotdir}/plasimt42_pert_scale_vs_corr_leadtime{leadtime}.svg')
 
 # spaghetti plot
