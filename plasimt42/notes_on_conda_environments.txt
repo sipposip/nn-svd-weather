@@ -1,0 +1,2 @@
+largescale-ML_tetralith.yml was used for train_network_puma_plasim_100epochlargemem.py (needed older keras/tensorflow version, same as in GMD paper)
+nn-svd-env_tetralith.yml was used for plasim_from_precomputed_jacobians.py and plasim_precompute_jacobians.py

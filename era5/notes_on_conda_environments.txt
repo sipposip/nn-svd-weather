@@ -1,0 +1,2 @@
+tf2-env_kebnekaise.yml was used for svd_ensemble_era5_2.5deg_weynetal_precompute_jacobians.py and svd_ensemble_era5_2.5deg_weynetal_from_precomputed_jacobians.py
+base-env_kebnekaise.yml was used for train_era5_2.5deg_weynetal_batch.py
