@@ -29,3 +29,5 @@ plots: ```era5/analyze_and_plot_era5.py```
 
 
 Each subfolder contains a *.yml file that contains the anaconda environment used for each model.
+
+Author: Sebastian Scher
