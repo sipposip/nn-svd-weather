@@ -11,7 +11,7 @@ for Lorenz95,1 and 2) as well as 3) and 4) are combined into single scripts.
 The repository also contains the output from step 3) (in the folders "output" and "data") and all plots.
 
 ### Lorenz96
-training, jacobians and singular vectors: ```lorenz95/lorenz95_ensemble_nn_train.py  
+training, jacobians and singular vectors: ```lorenz95/lorenz95_ensemble_nn_train.py```  
 forecasts and plots: ```lorenz95/lorenz95_analyze_and_plot.py```  
 ### Plasim
 training: ```plasimt42/train_network_puma_plasim_100epochlargemem.py```  
