@@ -7,6 +7,7 @@ import seaborn as sns
 import numpy as np
 from pylab import plt
 from tqdm import tqdm
+import xarray as xr
 
 plotdir='plots/'
 os.system(f'mkdir -p {plotdir}')
@@ -15,6 +16,10 @@ def savefig(figname):
     plt.savefig(figname+'.svg')
     plt.savefig(figname+'.pdf')
 
+norm_weights_folder = 'normalization_weights/'
+# in the make and eval script, we forgot to scale CRPS to real units (it was computed on the
+# normalized data). therefore we need the norm_scale here
+norm_std = xr.open_dataarray(norm_weights_folder+'/normalization_weights_era5_2.5deg_2015-2016_tres6_geopotential_500_std.nc').values
 
 # # create a list of dictionaries, each ditc containing the reults for one n_ens - pert_scale combination
 data_svd = []
@@ -156,7 +161,8 @@ for sub in tqdm(data_drop):
                             #compute RMSE and mean stddev
                             'rmse_ensmean_drop': np.sqrt(np.mean(sub['mse_ensmean_drop'][ltime])),
                             'spread_drop': np.sqrt(np.mean(sub['spread_drop'][ltime])),
-                            'crps_drop': np.mean(sub['crps_drop'][ltime]),
+                            # scale crps to real units
+                            'crps_drop': np.mean(sub['crps_drop'][ltime])*norm_std,
                             'n_ens': sub['n_ens'],
                             'drop_rate':sub['drop_rate'],
                             }, index=[0]
@@ -187,7 +193,7 @@ for sub in tqdm(data_svd):
                             #compute RMSE and mean stddev
                             'rmse_ensmean_svd': np.sqrt(np.mean(sub['mse_ensmean_svd'][ltime])),
                             'spread_svd': np.sqrt(np.mean(sub['spread_svd'][ltime])),
-                            'crps_svd': np.mean(sub['crps_svd'][ltime]),
+                            'crps_svd': np.mean(sub['crps_svd'][ltime])*norm_std,
                             'n_ens': sub['n_ens'],
                             'n_svs':sub['n_svs_reduced'],
                             'pert_scale':sub['pert_scale'],
@@ -218,8 +224,12 @@ for sub in tqdm(data_netens):
                             'corr_netens_upper':corr[2],
                             #compute RMSE and mean stddev
                             'rmse_ensmean_netens': np.sqrt(np.mean(sub['mse_ensmean_netens'][ltime])),
+                            # as ctrl we take the mean error of all members (not error ensemble mean, but
+                            # mean of error of individual members). the member dimension is just another dimension,
+                            # so we can take the mean of everything (time and member)
+                            'rmse_ctrl':np.sqrt(np.mean(sub['mse_ensmean_netens_permember'][ltime])),
                             'spread_netens': np.sqrt(np.mean(sub['spread_netens'][ltime])),
-                            'crps_netens':np.mean(sub['crps_netens'][ltime]),
+                            'crps_netens':np.mean(sub['crps_netens'][ltime])*norm_std,
                             'n_ens': sub['n_ens'],
                             }, index=[0]
                            )
@@ -248,7 +258,7 @@ for sub in tqdm(data_rand):
                             #compute RMSE and mean stddev
                             'rmse_ensmean_rand': np.sqrt(np.mean(sub['mse_ensmean_rand'][ltime])),
                             'spread_rand': np.sqrt(np.mean(sub['spread_rand'][ltime])),
-                            'crps_rand': np.mean(sub['crps_rand'][ltime]),
+                            'crps_rand': np.mean(sub['crps_rand'][ltime])*norm_std,
                             'n_ens': sub['n_ens'],
                             'pert_scale':sub['pert_scale'],
                             }, index=[0]
@@ -317,6 +327,7 @@ for iplot,optimization_var in enumerate(['rmse_ensmean','corr', 'crps']):
     plt.plot(sub_rand['leadtime'], sub_rand['rmse_ensmean_rand'], label='rand', color=colors[1], zorder=1)
     plt.plot(sub_drop['leadtime'], sub_drop['rmse_ensmean_drop'], label='drop', color=colors[2])
     plt.plot(sub_netens['leadtime'], sub_netens['rmse_ensmean_netens'], label='netens', color=colors[3])
+    plt.plot(sub_netens['leadtime'], sub_netens['rmse_ctrl'], label='unperturbed', color='grey')
     plt.plot(sub_svd['leadtime'], sub_svd['spread_svd'],  color=colors[0], linestyle='--', zorder=1)
     plt.plot(sub_rand['leadtime'], sub_rand['spread_rand'], color=colors[1], linestyle='--', zorder=0)
     plt.plot(sub_drop['leadtime'], sub_drop['spread_drop'], color=colors[2], linestyle='--')
@@ -327,6 +338,7 @@ for iplot,optimization_var in enumerate(['rmse_ensmean','corr', 'crps']):
 
     sns.despine()
     plt.ylim(ymax=2000)
+    plt.xlim((0, 120))
     plt.title(f'selected on {optimization_var}')
 
     plt.subplot(3, 3, 4+iplot)
@@ -335,9 +347,10 @@ for iplot,optimization_var in enumerate(['rmse_ensmean','corr', 'crps']):
     plt.plot(sub_drop['leadtime'], sub_drop['crps_drop'], label='drop', color=colors[2], zorder=1)
     plt.plot(sub_netens['leadtime'], sub_netens['crps_netens'], label='netens', color=colors[3])
     if iplot==0:
-        plt.ylabel('crps')
+        plt.ylabel('crps [$m^2/s^2$]')
     sns.despine()
-    plt.ylim(ymax=0.35)
+    plt.ylim(ymax=1200)
+    plt.xlim((0, 120))
 
     plt.subplot(3, 3, 7+iplot)
     plt.plot(sub_svd['leadtime'][1:], sub_svd['corr_svd'][1:], label='svd', color=colors[0])
@@ -353,6 +366,7 @@ for iplot,optimization_var in enumerate(['rmse_ensmean','corr', 'crps']):
         plt.ylabel('spread-error correlation')
     sns.despine()
     plt.ylim((0,0.9))
+    plt.xlim((0,120))
 
     table.append(pd.DataFrame({
         'selected on': optimization_var,
@@ -367,7 +381,7 @@ for iplot,optimization_var in enumerate(['rmse_ensmean','corr', 'crps']):
     },index=[0]))
 
 savefig(f'{plotdir}/era5_best_combis_all')
-savefig(f'{plotdir}/era5_best_combis_all')
+
 
 table = pd.concat(table)
 
@@ -409,7 +423,7 @@ plt.subplot(325)
 sns.lineplot('n_ens','crps_rand', data=sub_df, hue='leadtime')
 plt.legend()
 sns.despine()
-plt.ylabel('crps')
+plt.ylabel('crps [$m^2/s^2$]')
 plt.xlabel('$n_{ens}$')
 #savefig(f'{plotdir}/era5_rand_n_ens_vs_all_pert_scale{pert_scale}')
 
@@ -440,7 +454,7 @@ plt.subplot(326)
 sns.lineplot('pert_scale','crps_rand', data=sub_df, hue='leadtime')
 plt.legend()
 sns.despine()
-plt.ylabel('crps')
+plt.ylabel('crps [$m^2/s^2$]')
 plt.xlabel('$\sigma_{rand}$')
 savefig(f'{plotdir}/era5_rand_sensitivity')
 
@@ -475,7 +489,7 @@ plt.subplot(325)
 sns.lineplot('n_ens','crps_drop', data=sub_df, hue='leadtime')
 plt.legend()
 sns.despine()
-plt.ylabel('crps')
+plt.ylabel('crps [$m^2/s^2$]')
 plt.xlabel('$n_{ens}$')
 
 
@@ -503,7 +517,7 @@ plt.subplot(326)
 sns.lineplot('drop_rate','crps_drop', data=sub_df, hue='leadtime')
 plt.legend()
 sns.despine()
-plt.ylabel('crps')
+plt.ylabel('crps [$m^2/s^2$]')
 plt.xlabel('$p_{drop}$')
 savefig(f'{plotdir}/era5_drop_sensitiviy')
 
@@ -532,7 +546,7 @@ plt.subplot(3,1,3)
 sns.lineplot('n_ens','crps_netens', data=sub_df, hue='leadtime')
 plt.legend()
 plt.xlabel('$n_{ens}$')
-plt.ylabel('crps')
+plt.ylabel('crps [$m^2/s^2$]')
 sns.despine()
 savefig(f'{plotdir}/era5_netens_n_ens_vs_all')
 
@@ -574,7 +588,7 @@ plt.subplot(325)
 sns.lineplot('n_ens','crps_svd', data=sub_df, hue='leadtime')
 plt.legend()
 sns.despine()
-plt.ylabel('crps')
+plt.ylabel('crps [$m^2/s^2$]')
 plt.xlabel('$n_{ens}$')
 
 ## pert_scale vs rmse / corr/ crps with fixed n_ens, svd_leadtime and n_svs
@@ -602,7 +616,7 @@ plt.subplot(326)
 sns.lineplot('pert_scale','crps_svd', data=sub_df, hue='leadtime')
 plt.legend()
 sns.despine()
-plt.ylabel('crps')
+plt.ylabel('crps [$m^2/s^2$]')
 plt.xlabel('$\sigma_{svd}$')
 savefig(f'{plotdir}/era5_svd_sensitivity_1')
 
@@ -632,7 +646,7 @@ plt.subplot(325)
 sns.lineplot('n_svs','crps_svd', data=sub_df, hue='leadtime')
 plt.legend()
 sns.despine()
-plt.ylabel('crps')
+plt.ylabel('crps [$m^2/s^2$]')
 plt.xlabel('$n_{svs}$')
 
 ## svd_leadtime vs rmse / corr/ crps with fixed rest
@@ -640,6 +654,8 @@ n_ens=100
 sub_df = df_svd.query('n_ens==@n_ens & pert_scale==@pert_scale & n_svs==@n_svs')
 # here we omit leadtime 0 (because we dont need and it makes the plots confusing, especially for corr)
 sub_df = sub_df[sub_df['leadtime']!=0]
+# convert svd_leadtime from steps to hours
+sub_df['svd_leadtime'] = sub_df['svd_leadtime'] * 6
 plt.subplot(322)
 sns.lineplot('svd_leadtime','rmse_ensmean_svd', data=sub_df, hue='leadtime')
 sns.lineplot('svd_leadtime','spread_svd', data=sub_df, hue='leadtime', style=True, dashes=[(2,2)],
@@ -659,6 +675,6 @@ plt.subplot(326)
 sns.lineplot('svd_leadtime','crps_svd', data=sub_df, hue='leadtime')
 plt.legend()
 sns.despine()
-plt.ylabel('crps')
-plt.xlabel('$T_{svd}$')
+plt.ylabel('crps [$m^2/s^2$]')
+plt.xlabel('$T_{svd} [h]$')
 savefig(f'{plotdir}/era5_svd_sensitivity_2')

@@ -360,6 +360,7 @@ for n_ens in [2,4,10,20,100]:
                'crps_netens': res_crps_netens,
                'n_ens': n_ens,
                'pert_scale': pert_scale,
+               'mse_ensmean_netens_permember':res_mse_netens_permember,
                }
         pickle.dump(out, open(
             f'{outdir}/era5_fc_eval_results_netens_{param_string}_{test_startyear}-{test_endyear}_nresample{n_resample}_n_ens{n_ens}.pkl',
