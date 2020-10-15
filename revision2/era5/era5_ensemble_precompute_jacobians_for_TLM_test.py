@@ -258,10 +258,11 @@ n_resample = 1  # factor to reduce the output resolution/diension
 svd_leadtime=4 # in multiples of lead_time * lead_time_hours.
 svd_params = f'n_svs{n_svs}_n_ens{n_ens}_pertscale{pert_scale}_nresample{n_resample}_svdleadtime{svd_leadtime}'
 
-#TODO finish
+
 for i,x_init in enumerate(data):
     L = net_jacobian(x_init, svd_leadtime)
     # jacobian is format (n_output, n_input)
     L = np.array(L).reshape((Nlat*Nlon*n_channels_in//(n_resample**2),Nlat*Nlon*n_channels_in))
-    np.save(f'jacobian_{svd_params}_{i}.npy',L)
+    np.save(f'{outdir}/jacobian_{svd_params}_{i:02d}.npy',L)
+    np.save(f'{outdir}/jacobian_{svd_params}_{i:02d}_corresponding_init_cond.npy',data)
 
