@@ -1,25 +1,18 @@
-#! /pfs/nobackup/home/s/sebsc/miniconda3/envs/tf2-env/bin/python
-
-# SBATCH -A SNIC2019-3-611
-# SBATCH --time=2-00:00:00
-# SBATCH --gres=gpu:k80:1
+#! /proj/bolinc/users/x_sebsc/anaconda3/envs/nn-svd-env/bin/python
+#SBATCH -N 1
+#SBATCH -t 06:00:00
+#SBATCH -A snic2020-1-31
 
 """
 needs tensorflow 2.0
-run on kebnekaise
+run on tetralith
 """
 
 import os
 import sys
-import pickle
-import matplotlib
-
-matplotlib.use('agg')
 from pylab import plt
 import numpy as np
-import pandas as pd
-import seaborn as sns
-import xarray as xr
+import pickle
 import tensorflow as tf
 import tensorflow.keras as keras
 from tqdm import tqdm
@@ -28,17 +21,19 @@ from dask.diagnostics import ProgressBar
 ProgressBar().register()
 
 datadir = 'data'
-outdir = 'output'
+
 os.system(f'mkdir -p {datadir}')
-os.system(f'mkdir -p {outdir}')
+
 
 # basepath for input data
 if 'NSC_RESOURCE_NAME' in os.environ and os.environ['NSC_RESOURCE_NAME'] == 'tetralith':
     basepath = '/proj/bolinc/users/x_sebsc/weather-benchmark/2.5deg/'
-    norm_weights_folder = '/proj/bolinc/users/x_sebsc/nn_/benchmark/normalization_weights/'
+    norm_weights_folder = '/proj/bolinc/users/x_sebsc/nn_ensemble_nwp/era5/normalization_weights/'
+    outdir='/proj/bolinc/users/x_sebsc/nn_ensemble_nwp/era5/output/'
 else:
     basepath = '/home/s/sebsc/pfs/weather_benchmark/2.5deg/'
     norm_weights_folder = '/home/s/sebsc/pfs/nn_ensemble/era5/normalization_weights/'
+    outdir = 'output/'
 
 lead_time = 1  # in steps
 N_gpu = 0
@@ -57,7 +52,7 @@ n_svs = 100
 n_ens = 10  # this was only used for filename of jacobian
 pert_scale = 1.0  # only for filename of jacobian
 n_resample = 1  # factor to reduce the output resolution/diension
-svd_leadtime = int(sys.argv[1])
+svd_leadtime = 4 #4*6=24h
 
 norm_weights_filenamebase = f'{norm_weights_folder}/normalization_weights_era5_2.5deg_{train_startyear}-{train_endyear}_tres{time_resolution_hours}_' \
                             + '_'.join([str(e) for e in variables])
@@ -70,70 +65,8 @@ num_epochs = 200
 drop_prob = 0
 
 
-def read_e5_data(startyear, endyear,
-                 variables='all'):
-    all_variables = ['2m_temperature', 'mean_sea_level_pressure',
-                     '10m_u_component_of_wind', '10m_v_component_of_wind']
-
-    years = list(range(startyear, endyear + 1))
-    if variables == 'all':
-        variables = all_variables
-
-    combined_ds = []
-    for variable in variables:
-        ifiles = [f'{basepath}/{variable}/{variable}_{year}_2.5deg.nc' for year in years]
-        ds = xr.open_mfdataset(ifiles, chunks={'time': 1})  # we need to chunk time by 1 to get efficient
-        # reading of data whenrequesting lower time-resolution
-        # this is now a dataset. we want to have a dataarray
-        da = ds.to_array()
-        # now the first dimension is the variable dimension, which should have length 1 (because we have only
-        # 1 variable per file
-        assert (da.shape[0] == 1)
-        # remove this dimension
-        da = da.squeeze()
-        if not load_data_lazily:
-            da.load()
-        combined_ds.append(da)
-
-    return combined_ds
-
-
-# lazily load the whole dataset
-ds_whole = read_e5_data(test_startyear, test_endyear, variables=variables)
-# this is now a lazy dask array. do not do any operations on this array outside the data generator below.
-# if we do operations before, it will severly slow down the data loading throughout the training.
-
-# load normalization weights
-norm_mean = xr.open_dataarray(norm_weights_filenamebase + '_mean.nc').values
-norm_std = xr.open_dataarray(norm_weights_filenamebase + '_std.nc').values
-
-n_data = ds_whole[0].shape[0]
-N_train = n_data // time_resolution_hours
-n_valid = int(N_train * valid_split)
-
-Nlat, Nlon, = ds_whole[0].shape[1:3]
-
-Nlat = Nlat // 2  # only NH
-
-n_channels_out = len(variables)
-
-n_channels_in = n_channels_out
 
 param_string = f'{modelname}_{train_startyear}-{train_endyear}'
-
-time_indices_all = np.arange(0, n_data - time_resolution_hours * lead_time, time_resolution_hours)
-data_train = np.array(ds_whole[0][time_indices_all], dtype='float32')
-data_train = (data_train - norm_mean) / norm_std
-
-x_train = data_train[:-lead_time]
-y_train = data_train[lead_time:]
-
-# add (empty) channel dimension
-x_train = np.expand_dims(x_train, axis=-1)
-y_train = np.expand_dims(y_train, axis=-1)
-x_train = x_train[:, -Nlat:]
-y_train = y_train[:, -Nlat:]
-
 
 class PeriodicPadding(keras.layers.Layer):
     def __init__(self, axis, padding, **kwargs):
@@ -197,15 +130,7 @@ model = keras.models.load_model(modelfile,
 
 print(model.summary())
 
-lat = ds_whole[0].lat.values[-Nlat:]
-
-data = data_train[:, -Nlat:]
-if n_channels_in == 1:
-    data = np.expand_dims(data, -1)
-
-# reduce to 2-daily resolution (to save computation time)
 tres_factor = 8
-data_reduced = data[::tres_factor]
 
 svd_params = f'n_svs{n_svs}_n_ens{n_ens}_pertscale{pert_scale}_nresample{n_resample}_svdleadtime{svd_leadtime}'
 
@@ -219,25 +144,43 @@ max_forecast_steps = target_max_leadtime // (lead_time * time_resolution_hours)
 # load precomputed singular vectors
 svecs_all = np.load(
     f'{outdir}/jacobians_{param_string}_{test_startyear}-{test_endyear}_{svd_params}_tres{tres_factor}.npy')
-assert (len(data_reduced) == len(svecs_all))
 
-# network member ensemble
-member_selection_scores = np.load('mse_per_mem.npy')
-# select only the 20 best members (at lead time index 10)
-best_mem_idcs = member_selection_scores[10, :].argsort()[:20][::-1]
-best_mem_idcs = best_mem_idcs + 1
-network_ensemble_all = []
-for imem in best_mem_idcs:
-    _modelfile = f'data_mem{imem}/trained_model_era5_2.5deg_weynetal_1979-2016_mem{imem}.h5'
-    _model = keras.models.load_model(_modelfile, custom_objects={'PeriodicPadding': PeriodicPadding})
-    network_ensemble_all.append(_model)
-
-x_init_ctrl = data_reduced[:-int(max_forecast_steps // tres_factor)]
 
 
 # load precomputed jacobinas
+pert_scales = np.linspace(-1,1,500)
 
-i=0
-x_init = x_init_ctrl[i]
-svecs = svecs_all[i]
-J = np.load(f'{outdir}/jacobian_{svd_params}_{i:04d}.npy')
+# there is a small error in the script that wrote out the jacobians.
+# instead of saving the initial condition for each jacobian, it saved all initial conditions
+# therefore we just need to read one of them
+data = np.load(f'{outdir}/jacobian_{svd_params}_0001_corresponding_init_cond.npy')
+Nlat,Nlon,n_channels_in = data.shape[1:]
+
+res_all = {'tlm':[],'finitdiff':[], 'pert_scales':pert_scales}
+for i in tqdm(range(len(data))):
+    svecs = svecs_all[i]
+    J = np.load(f'{outdir}/jacobian_{svd_params}_{i:04d}.npy')
+    x_init = data[i]
+
+    #choose first svec
+    svec = svecs[0]
+    res_finitdiff = []
+    res_tlm = []
+
+    for pert_scale in tqdm(pert_scales):
+        # make normal and perturbed forecast
+        x_pert = x_init + pert_scale*svec.reshape(Nlat,Nlon,n_channels_in)
+        fc_base = model.predict(np.expand_dims(x_init,0))
+        fc_pert =  model.predict(np.expand_dims(x_pert,0))
+        fc_diff = fc_pert - fc_base
+        fc_diff_flat = fc_diff.flatten()
+        # make "forecast" with jacobian
+        fc_tlm = np.dot(J,pert_scale*svec)
+        # compute area mean perturbation
+        res_finitdiff.append(fc_diff_flat.mean())
+        res_tlm.append(fc_tlm.mean())
+
+    res_all['finitdiff'].append(res_finitdiff)
+    res_all['tlm'].append(res_tlm)
+
+pickle.dump(res_all,open('tlm_test_result.pkl','wb'))
