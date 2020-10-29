@@ -5,6 +5,9 @@ import numpy as np
 from pylab import plt
 import seaborn as sns
 
+
+
+sns.set_palette('colorblind')
 data = pickle.load(open('tlm_test_result.pkl','rb'))
 
 pert_scales = data['pert_scales']
@@ -13,13 +16,14 @@ pert_scales = data['pert_scales']
 plt.figure()
 for tlm, finitdiff in zip(data['tlm'],data['finitdiff']):
     plt.plot(pert_scales, tlm, label='tlm', alpha=0.1, color='black')
-    plt.plot(pert_scales, finitdiff, label='finitdiff', alpha=0.1,color='red')
+    plt.plot(pert_scales, finitdiff, label='NN', alpha=0.1,color='red')
 
-plt.xlabel('pert_scale')
-plt.savefig('tlm_test_singlelines.png')
+plt.xlabel('$\sigma$')
+plt.ylabel("$y'$")
+plt.savefig('plots/tlm_test_singlelines.png')
 plt.xlim((-0.25,0.25))
 plt.ylim((-0.004,0.004))
-plt.savefig('tlm_test_singlelines_closeup.png')
+plt.savefig('plots/tlm_test_singlelines_closeup.png')
 
 plt.show()
 
@@ -27,13 +31,22 @@ plt.show()
 tlm = np.mean(np.array(data['tlm']),axis=0)
 finitdiff = np.mean(np.array(data['finitdiff']),axis=0)
 
-plt.figure()
-plt.plot(pert_scales, tlm, label='tlm')
-plt.plot(pert_scales, finitdiff, label='finitdiff')
-plt.xlabel('pert_scale')
+plt.figure(figsize=(12,4))
+plt.subplot(121)
+plt.plot(pert_scales, tlm, label='TLM')
+plt.plot(pert_scales, finitdiff, label='NN')
+plt.xlabel('$\sigma$')
+plt.ylabel("$y'$")
 plt.legend()
 sns.despine()
-plt.savefig('tlm_test.svg')
+plt.subplot(122)
+plt.plot(pert_scales, tlm, label='TLM')
+plt.plot(pert_scales, finitdiff, label='NN')
+plt.xlabel('$\sigma$')
+plt.ylabel("$y'$")
+plt.legend()
+sns.despine()
 plt.xlim((-0.1,0.1))
 plt.ylim((-0.00005,0.00005))
-plt.savefig('tlm_test_closeup.svg')
+plt.tight_layout()
+plt.savefig('plots/tlm_test.pdf', bbox='tight')
