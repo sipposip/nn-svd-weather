@@ -8,11 +8,16 @@ import numpy as np
 import xarray as xr
 from pylab import plt
 
-regrid=True
+# regrid=True
+regrid=False
+if regrid:
+    regridstr = "_regridTrue"
+else:
+    regridstr = ""
 
 data = []
 for n_ens in range(2,11):
-    ifile = f'gefs/gefs_reforecast_scores_n_ens{n_ens}_regrid{regrid}.pkl'
+    ifile = f'gefs/gefs_reforecast_scores_n_ens{n_ens}{regridstr}.pkl'
     res = pickle.load(open(ifile,'rb'))
     # the data is on float32. convert all float data to float 64
     for key in res.keys():
@@ -96,22 +101,23 @@ sub_df = sub_df[sub_df['leadtime']!=0]
 plt.subplot(3,2,2)
 sns.lineplot('n_ens','rmse_ensmean', data=sub_df, hue='leadtime')
 sns.lineplot('n_ens','spread', data=sub_df, hue='leadtime', style=True, dashes=[(2,2)], legend=False)
-plt.legend()
+plt.legend(bbox_to_anchor=(0, 1.1), loc=2, borderaxespad=0., ncol=5)
 plt.xlabel('')
 plt.ylabel('rmse (solid) \n spread (dashed) [$m^2/s^2$]')
 sns.despine()
 plt.subplot(3,2,4)
 sns.lineplot('n_ens','corr', data=sub_df, hue='leadtime')
-plt.legend()
+plt.legend(bbox_to_anchor=(0, 1.1), loc=2, borderaxespad=0., ncol=5)
 plt.xlabel('')
 plt.ylabel('spread error correlation')
 sns.despine()
 plt.subplot(3,2,6)
 sns.lineplot('n_ens','crps', data=sub_df, hue='leadtime')
-plt.legend()
+plt.legend(bbox_to_anchor=(0, 1.1), loc=2, borderaxespad=0., ncol=5)
 plt.xlabel('$n_{ens}$')
 plt.ylabel('crps [$m^2/s^2$]')
 sns.despine()
+plt.tight_layout()
 plt.savefig(f'plots/gefs_skill_regrid{regrid}.pdf')
 plt.savefig(f'plots/gefs_skill_regrid{regrid}.svg')
 plt.savefig(f'plots/gefs_skill_regrid{regrid}.png')
