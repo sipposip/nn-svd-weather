@@ -272,7 +272,7 @@ for iplot,optimization_var in enumerate(['rmse_ensmean','corr', 'crps']):
     plt.xlim((0, 120))
     plt.title(f'selected on {optimization_var}')
 
-    plt.subplot(3, 3, 4+iplot)
+    plt.subplot(3, 3, 7+iplot)
     plt.plot(sub_svd['leadtime'], sub_svd['crps_svd'], label='svd', color=colors[0])
     plt.plot(sub_rand['leadtime'], sub_rand['crps_rand'], label='rand', color=colors[1], zorder=1)
     plt.plot(sub_drop['leadtime'], sub_drop['crps_drop'], label='drop', color=colors[2], zorder=1)
@@ -283,14 +283,11 @@ for iplot,optimization_var in enumerate(['rmse_ensmean','corr', 'crps']):
     plt.ylim(ymax=1200)
     plt.xlim((0, 120))
 
-    plt.subplot(3, 3, 7+iplot)
+    plt.subplot(3, 3, 4+iplot)
     plt.plot(sub_svd['leadtime'][1:], sub_svd['corr_svd'][1:], label='svd', color=colors[0])
-    #plt.fill_between(sub_df['leadtime'][1:], sub_df['corr_svd_lower'][1:],sub_df['corr_svd_upper'][1:],color='#1b9e77', alpha=0.5)
     plt.plot(sub_rand['leadtime'][1:], sub_rand['corr_rand'][1:], label='rand', color=colors[1])
-    #plt.fill_between(sub_df['leadtime'][1:], sub_df['corr_rand_lower'][1:],sub_df['corr_rand_upper'][1:],color='#7570b3', alpha=0.5)
     plt.plot(sub_drop['leadtime'][1:], sub_drop['corr_drop'][1:], label='drop', color=colors[2])
     plt.plot(sub_netens['leadtime'][1:], sub_netens['corr_netens'][1:], label='retrain', color=colors[3])
-    #plt.fill_between(sub_df['leadtime'][1:], sub_df['corr_netens_lower'][1:],sub_df['corr_netens_upper'][1:],color='#d95f02', alpha=0.5)
 
     plt.xlabel('leadtime [h]')
     if iplot == 0:
